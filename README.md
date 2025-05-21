@@ -44,6 +44,7 @@ Un clásico juego de Sudoku con generación aleatoria de tableros, tres niveles 
 
 # 🛠️ Estructura del código
 
+```plaintext
 src/
 ├── sudoku/
 │   ├── GeneradorSudoku.java    # Genera puzzles aleatorios
@@ -54,6 +55,8 @@ src/
 │       ├── EntradaFueraDeRangoException.java
 │       ├── MovimientoInvalidoException.java
 │       └── SudokuException.java
+
+```
 
 # 💻 Tecnologías utilizadas
 
