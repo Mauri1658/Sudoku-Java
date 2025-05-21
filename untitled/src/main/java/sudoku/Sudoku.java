@@ -1,173 +1,167 @@
 package sudoku;
 
-import sudoku.excepciones.MovimientoInvalidoException;
 import sudoku.excepciones.EntradaFueraDeRangoException;
+import sudoku.excepciones.MovimientoInvalidoException;
+import sudoku.excepciones.SudokuException;
+import java.util.Arrays;
 
 public class Sudoku {
     private int[][] tablero;
     private boolean[][] celdasFijas;
-    private static final int TAMANO = 9;
-    private static final int SUBTAMANO = 3;
+    private static final int TAMANIO = 9;
 
     public Sudoku() {
-        tablero = new int[TAMANO][TAMANO];
-        celdasFijas = new boolean[TAMANO][TAMANO];
+        tablero = new int[TAMANIO][TAMANIO];
+        celdasFijas = new boolean[TAMANIO][TAMANIO];
+        for (int i = 0; i < TAMANIO; i++) {
+            Arrays.fill(tablero[i], 0);
+            Arrays.fill(celdasFijas[i], false);
+        }
     }
 
-    public void generarTablero(String dificultad) {
-        GeneradorSudoku generador = new GeneradorSudoku();
-        generador.generarTablero(this, dificultad);
+    public void cargarTablero(int[][] tableroGenerado) {
+        for (int i = 0; i < TAMANIO; i++) {
+            for (int j = 0; j < TAMANIO; j++) {
+                tablero[i][j] = tableroGenerado[i][j];
+                celdasFijas[i][j] = tableroGenerado[i][j] != 0;
+            }
+        }
     }
 
     public boolean esMovimientoValido(int fila, int columna, int valor)
-            throws EntradaFueraDeRangoException {
-        // Validar rango de entrada
-        if (fila < 0 || fila >= TAMANO || columna < 0 || columna >= TAMANO) {
-            throw new EntradaFueraDeRangoException("Fila o columna fuera de rango (0-8)");
-        }
-        if (valor < 1 || valor > 9) {
-            throw new EntradaFueraDeRangoException("Valor fuera de rango (1-9)");
-        }
+            throws EntradaFueraDeRangoException, MovimientoInvalidoException {
+        validarRango(fila, columna, valor);
 
-        // Verificar si la celda es fija
         if (celdasFijas[fila][columna]) {
-            return false;
+            throw new MovimientoInvalidoException("No puedes modificar una celda fija.");
         }
 
-        // Verificar fila
-        for (int c = 0; c < TAMANO; c++) {
-            if (tablero[fila][c] == valor && c != columna) {
-                return false;
-            }
+        if (!filaValida(fila, columna, valor)) {
+            throw new MovimientoInvalidoException("El número ya está en la fila.");
         }
 
-        // Verificar columna
-        for (int r = 0; r < TAMANO; r++) {
-            if (tablero[r][columna] == valor && r != fila) {
-                return false;
-            }
+        if (!columnaValida(fila, columna, valor)) {
+            throw new MovimientoInvalidoException("El número ya está en la columna.");
         }
 
-        // Verificar subcuadrícula 3x3
-        int subFilaInicio = (fila / SUBTAMANO) * SUBTAMANO;
-        int subColInicio = (columna / SUBTAMANO) * SUBTAMANO;
-
-        for (int r = subFilaInicio; r < subFilaInicio + SUBTAMANO; r++) {
-            for (int c = subColInicio; c < subColInicio + SUBTAMANO; c++) {
-                if (tablero[r][c] == valor && r != fila && c != columna) {
-                    return false;
-                }
-            }
+        if (!bloqueValido(fila, columna, valor)) {
+            throw new MovimientoInvalidoException("El número ya está en el bloque 3x3.");
         }
 
         return true;
     }
 
-    public void colocarNumero(int fila, int columna, int valor)
-            throws MovimientoInvalidoException, EntradaFueraDeRangoException {
+    public void colocarNumero(int fila, int columna, int valor) throws SudokuException {
+        if (celdasFijas[fila][columna]) {
+            throw new MovimientoInvalidoException("No puedes modificar una celda fija.");
+        }
         if (esMovimientoValido(fila, columna, valor)) {
             tablero[fila][columna] = valor;
-        } else {
-            throw new MovimientoInvalidoException("Movimiento no válido según las reglas del Sudoku");
         }
+    }
+
+    public void eliminarNumero(int fila, int columna) throws SudokuException {
+        validarRango(fila, columna, 1); // valor solo para validar fila y columna
+        if (celdasFijas[fila][columna]) {
+            throw new MovimientoInvalidoException("No puedes modificar una celda fija.");
+        }
+        tablero[fila][columna] = 0;
+    }
+
+    private boolean esMovimientoValidoSinChequeoFijo(int fila, int columna, int valor)
+            throws EntradaFueraDeRangoException, MovimientoInvalidoException {
+        validarRango(fila, columna, valor);
+
+        if (!filaValida(fila, columna, valor)) {
+            throw new MovimientoInvalidoException("El número ya está en la fila.");
+        }
+
+        if (!columnaValida(fila, columna, valor)) {
+            throw new MovimientoInvalidoException("El número ya está en la columna.");
+        }
+
+        if (!bloqueValido(fila, columna, valor)) {
+            throw new MovimientoInvalidoException("El número ya está en el bloque 3x3.");
+        }
+
+        return true;
     }
 
     public boolean estaResuelto() {
-        // Verificar que todas las celdas están llenas
-        for (int r = 0; r < TAMANO; r++) {
-            for (int c = 0; c < TAMANO; c++) {
-                if (tablero[r][c] == 0) {
-                    return false;
+        try {
+            for (int i = 0; i < TAMANIO; i++) {
+                for (int j = 0; j < TAMANIO; j++) {
+                    int valor = tablero[i][j];
+                    if (valor == 0) return false;
+
+                    tablero[i][j] = 0;
+                    if (!esMovimientoValidoSinChequeoFijo(i, j, valor)) {
+                        tablero[i][j] = valor; // restaurar
+                        return false;
+                    }
+                    tablero[i][j] = valor; // restaurar
                 }
             }
-        }
-
-        // Verificar que todas las filas, columnas y subcuadrículas son válidas
-        for (int i = 0; i < TAMANO; i++) {
-            if (!esFilaValida(i) || !esColumnaValida(i) || !esSubcuadriculaValida(i)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private boolean esFilaValida(int fila) {
-        boolean[] numeros = new boolean[TAMANO + 1];
-        for (int c = 0; c < TAMANO; c++) {
-            int num = tablero[fila][c];
-            if (num == 0 || numeros[num]) {
-                return false;
-            }
-            numeros[num] = true;
-        }
-        return true;
-    }
-
-    private boolean esColumnaValida(int columna) {
-        boolean[] numeros = new boolean[TAMANO + 1];
-        for (int r = 0; r < TAMANO; r++) {
-            int num = tablero[r][columna];
-            if (num == 0 || numeros[num]) {
-                return false;
-            }
-            numeros[num] = true;
-        }
-        return true;
-    }
-
-    private boolean esSubcuadriculaValida(int subGrid) {
-        boolean[] numeros = new boolean[TAMANO + 1];
-        int filaInicio = (subGrid / SUBTAMANO) * SUBTAMANO;
-        int colInicio = (subGrid % SUBTAMANO) * SUBTAMANO;
-
-        for (int r = filaInicio; r < filaInicio + SUBTAMANO; r++) {
-            for (int c = colInicio; c < colInicio + SUBTAMANO; c++) {
-                int num = tablero[r][c];
-                if (num == 0 || numeros[num]) {
-                    return false;
-                }
-                numeros[num] = true;
-            }
+        } catch (SudokuException e) {
+            return false;
         }
         return true;
     }
 
     public void mostrarTablero() {
-        for (int r = 0; r < TAMANO; r++) {
-            if (r % SUBTAMANO == 0 && r != 0) {
-                System.out.println("------+-------+------");
+        for (int i = 0; i < TAMANIO; i++) {
+            if (i % 3 == 0) System.out.println("+-------+-------+-------+");
+            for (int j = 0; j < TAMANIO; j++) {
+                if (j % 3 == 0) System.out.print("| ");
+                System.out.print(tablero[i][j] == 0 ? "  " : tablero[i][j] + " ");
             }
-            for (int c = 0; c < TAMANO; c++) {
-                if (c % SUBTAMANO == 0 && c != 0) {
-                    System.out.print("| ");
-                }
-                System.out.print(tablero[r][c] == 0 ? "  " : tablero[r][c] + " ");
-            }
-            System.out.println();
+            System.out.println("|");
         }
+        System.out.println("+-------+-------+-------+");
     }
 
-    // Getters y Setters
     public int[][] getTablero() {
         return tablero;
-    }
-
-    public void setTablero(int[][] tablero) {
-        this.tablero = tablero;
     }
 
     public boolean[][] getCeldasFijas() {
         return celdasFijas;
     }
 
-    public void setCeldasFijas(boolean[][] celdasFijas) {
-        this.celdasFijas = celdasFijas;
+    // Métodos auxiliares privados
+
+    private void validarRango(int fila, int columna, int valor) throws EntradaFueraDeRangoException {
+        if (fila < 0 || fila >= TAMANIO || columna < 0 || columna >= TAMANIO) {
+            throw new EntradaFueraDeRangoException("Fila o columna fuera del rango válido (0-8).");
+        }
+        if (valor < 1 || valor > 9) {
+            throw new EntradaFueraDeRangoException("Valor debe estar entre 1 y 9.");
+        }
     }
 
-    public void marcarCeldaComoFija(int fila, int columna) {
-        if (fila >= 0 && fila < TAMANO && columna >= 0 && columna < TAMANO) {
-            celdasFijas[fila][columna] = true;
+    private boolean filaValida(int fila, int columna, int valor) {
+        for (int j = 0; j < TAMANIO; j++) {
+            if (j != columna && tablero[fila][j] == valor) return false;
         }
+        return true;
+    }
+
+    private boolean columnaValida(int fila, int columna, int valor) {
+        for (int i = 0; i < TAMANIO; i++) {
+            if (i != fila && tablero[i][columna] == valor) return false;
+        }
+        return true;
+    }
+
+    private boolean bloqueValido(int fila, int columna, int valor) {
+        int inicioFila = (fila / 3) * 3;
+        int inicioCol = (columna / 3) * 3;
+        for (int i = inicioFila; i < inicioFila + 3; i++) {
+            for (int j = inicioCol; j < inicioCol + 3; j++) {
+                if (i == fila && j == columna) continue;
+                if (tablero[i][j] == valor) return false;
+            }
+        }
+        return true;
     }
 }

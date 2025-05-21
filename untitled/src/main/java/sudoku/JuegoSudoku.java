@@ -1,75 +1,72 @@
 package sudoku;
 
 import java.util.Scanner;
-import sudoku.excepciones.MovimientoInvalidoException;
-import sudoku.excepciones.EntradaFueraDeRangoException;
+import sudoku.excepciones.SudokuException;
 
 public class JuegoSudoku {
-    private Sudoku sudoku;
+    Sudoku sudoku;
+    GeneradorSudoku generador;
     private Scanner scanner;
 
     public JuegoSudoku() {
         sudoku = new Sudoku();
+        generador = new GeneradorSudoku();
         scanner = new Scanner(System.in);
     }
 
     public void iniciar() {
-        System.out.println("¡Bienvenido al Sudoku!");
-        System.out.println("Seleccione la dificultad:");
-        System.out.println("1. Fácil");
-        System.out.println("2. Medio");
-        System.out.println("3. Difícil");
+        System.out.println("Bienvenido al Sudoku!");
+        System.out.print("Selecciona dificultad (facil, medio, dificil): ");
+        String dificultad = scanner.nextLine().trim().toLowerCase();
 
-        int opcion = scanner.nextInt();
-        String dificultad;
-
-        switch (opcion) {
-            case 1:
-                dificultad = "facil";
-                break;
-            case 2:
-                dificultad = "medio";
-                break;
-            case 3:
-                dificultad = "dificil";
-                break;
-            default:
-                dificultad = "facil";
+        while (!dificultad.equals("facil") && !dificultad.equals("medio") && !dificultad.equals("dificil")) {
+            System.out.println("Dificultad inválida. Introduce facil, medio o dificil.");
+            dificultad = scanner.nextLine().trim().toLowerCase();
         }
 
-        sudoku.generarTablero(dificultad);
-        jugar();
-    }
+        int[][] tableroGenerado = generador.generarTablero(dificultad);
+        sudoku.cargarTablero(tableroGenerado);
 
-    void jugar() {
-        while (!sudoku.estaResuelto()) {
+        boolean terminado = false;
+
+        while (!terminado) {
             sudoku.mostrarTablero();
-
-            System.out.println("Ingrese fila (0-8), columna (0-8) y valor (1-9), separados por espacios:");
-            System.out.println("O ingrese 0 para salir");
-
-            int fila = scanner.nextInt();
-            if (fila == 0) {
-                System.out.println("Juego terminado.");
-                return;
-            }
-
-            int columna = scanner.nextInt();
+            System.out.println("Introduce movimiento: fila(1-9) columna(1-9) valor(1-9), o 0 0 0 para salir:");
+            int fila = scanner.nextInt() - 1;
+            int columna = scanner.nextInt() - 1;
             int valor = scanner.nextInt();
+
+            if (fila == -1 && columna == -1 && valor == 0) {
+                System.out.println("Saliendo del juego...");
+                break;
+            }
 
             try {
                 sudoku.colocarNumero(fila, columna, valor);
-            } catch (MovimientoInvalidoException | EntradaFueraDeRangoException e) {
+                if (sudoku.estaResuelto()) {
+                    sudoku.mostrarTablero();
+                    System.out.println("¡Felicidades! Has completado el Sudoku.");
+                    terminado = true;
+                }
+            } catch (SudokuException e) {
                 System.out.println("Error: " + e.getMessage());
             }
         }
-
-        sudoku.mostrarTablero();
-        System.out.println("¡Felicidades! Has resuelto el Sudoku correctamente.");
+        scanner.close();
     }
 
     public static void main(String[] args) {
         JuegoSudoku juego = new JuegoSudoku();
         juego.iniciar();
     }
+
+    public Sudoku getSudoku() {
+        return sudoku;
+    }
+
+    public GeneradorSudoku getGenerador() {
+        return generador;
+    }
+
+
 }

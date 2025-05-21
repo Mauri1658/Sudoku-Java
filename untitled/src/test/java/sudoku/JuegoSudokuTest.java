@@ -1,104 +1,74 @@
 package sudoku;
 
+import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sudoku.excepciones.MovimientoInvalidoException;
-import sudoku.excepciones.EntradaFueraDeRangoException;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.NoSuchElementException;
+import sudoku.excepciones.SudokuException;
 
-import static org.junit.jupiter.api.Assertions.*;
+public class JuegoSudokuTest {
 
-class JuegoSudokuTest {
     private JuegoSudoku juego;
-    private Sudoku sudokuMock;
+    private Sudoku sudoku;
 
     @BeforeEach
-    void setUp() {
-        sudokuMock = new Sudoku() {
-            @Override
-            public boolean estaResuelto() {
-                return false;
-            }
-
-            @Override
-            public void mostrarTablero() {
-                // No hacer nada para pruebas
-            }
-        };
+    public void setUp() {
         juego = new JuegoSudoku();
+        sudoku = juego.getSudoku();  // Asegúrate que JuegoSudoku tiene este getter
     }
 
     @Test
-    void testIniciarDificultad() {
-        String input = "1\n";
-        InputStream in = new ByteArrayInputStream(input.getBytes());
-        System.setIn(in);
-        juego.iniciar();
+    public void testIniciarJuegoConTableroGenerado() {
+        int[][] tablero = juego.getGenerador().generarTablero("facil");
+        sudoku.cargarTablero(tablero);
 
-        // Verificar que se llamó a generarTablero con "facil"
-        // (Necesitarías un mock para verificar esto completamente)
+        assertNotNull(sudoku.getTablero());
+        assertFalse(sudoku.estaResuelto());
     }
 
     @Test
-    void testJugarMovimientoValido() throws MovimientoInvalidoException, EntradaFueraDeRangoException {
-        String input = "1 1 5\n0\n";
-        InputStream in = new ByteArrayInputStream(input.getBytes());
-        System.setIn(in);
+    public void testColocarNumeroValido() throws Exception {
+        int[][] tablero = juego.getGenerador().generarTablero("facil");
+        sudoku.cargarTablero(tablero);
 
-        // Usar un Sudoku mock que acepte el movimiento
-        Sudoku sudokuMock = new Sudoku() {
-            @Override
-            public void colocarNumero(int fila, int columna, int valor) {
-                // No lanzar excepción
+        boolean colocado = false;
+
+        outer:
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                if (!sudoku.getCeldasFijas()[i][j] && sudoku.getTablero()[i][j] == 0) {
+                    for (int val = 1; val <= 9; val++) {
+                        try {
+                            if (sudoku.esMovimientoValido(i, j, val)) {
+                                sudoku.colocarNumero(i, j, val);
+                                assertEquals(val, sudoku.getTablero()[i][j]);
+                                colocado = true;
+                                break outer;  // Salimos de todos los bucles tras colocar el primer válido
+                            }
+                        } catch (Exception e) {
+                            // Ignorar excepciones y probar siguiente valor
+                        }
+                    }
+                }
             }
+        }
+        assertTrue(colocado, "Debe haberse colocado un número válido en el tablero");
+    }
+
+    @Test
+    public void testEstaResueltoDetectaFinal() throws Exception {
+        int[][] tableroResuelto = {
+                {5,3,4,6,7,8,9,1,2},
+                {6,7,2,1,9,5,3,4,8},
+                {1,9,8,3,4,2,5,6,7},
+                {8,5,9,7,6,1,4,2,3},
+                {4,2,6,8,5,3,7,9,1},
+                {7,1,3,9,2,4,8,5,6},
+                {9,6,1,5,3,7,2,8,4},
+                {2,8,7,4,1,9,6,3,5},
+                {3,4,5,2,8,6,1,7,9}
         };
-        juego = new JuegoSudoku();
-
-        // Necesitarías una forma de inyectar el mock en JuegoSudoku
-        // juego.setSudoku(sudokuMock);
-
-        assertDoesNotThrow(() -> juego.jugar());
-    }
-
-    @Test
-    void testJugarMovimientoInvalido() throws MovimientoInvalidoException, EntradaFueraDeRangoException {
-        String input = "1 1 5\n0\n";
-        InputStream in = new ByteArrayInputStream(input.getBytes());
-        System.setIn(in);
-
-        // Usar un Sudoku mock que rechace el movimiento
-        Sudoku sudokuMock = new Sudoku() {
-            @Override
-            public void colocarNumero(int fila, int columna, int valor) throws MovimientoInvalidoException {
-                throw new MovimientoInvalidoException("Movimiento inválido");
-            }
-        };
-        juego = new JuegoSudoku();
-
-        // Necesitarías una forma de inyectar el mock en JuegoSudoku
-        // juego.setSudoku(sudokuMock);
-
-        assertDoesNotThrow(() -> juego.jugar());
-    }
-
-    @Test
-    void testJugarEntradaInvalida() {
-        String input = "a b c\n0\n";
-        InputStream in = new ByteArrayInputStream(input.getBytes());
-        System.setIn(in);
-
-        assertDoesNotThrow(() -> juego.jugar());
-    }
-
-    @Test
-    void testJugarSalir() {
-        String input = "0\n";
-        InputStream in = new ByteArrayInputStream(input.getBytes());
-        System.setIn(in);
-
-        assertDoesNotThrow(() -> juego.jugar());
+        sudoku.cargarTablero(tableroResuelto);
+        assertTrue(sudoku.estaResuelto());
     }
 }

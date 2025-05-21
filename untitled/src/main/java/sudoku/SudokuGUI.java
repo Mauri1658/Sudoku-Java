@@ -2,140 +2,118 @@ package sudoku;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import sudoku.excepciones.MovimientoInvalidoException;
-import sudoku.excepciones.EntradaFueraDeRangoException;
+import java.awt.event.*;
+import sudoku.excepciones.SudokuException;
 
 public class SudokuGUI extends JFrame {
     private Sudoku sudoku;
-    JButton[][] botones;
-    JComboBox<String> dificultadComboBox;
-    JButton nuevoJuegoButton;
-    JButton verificarButton;
+    private GeneradorSudoku generador;
+    private JTextField[][] celdas;
+    private static final int TAMANIO = 9;
 
     public SudokuGUI() {
         sudoku = new Sudoku();
-        inicializarUI();
-    }
+        generador = new GeneradorSudoku();
+        sudoku.cargarTablero(generador.generarTablero("facil"));
 
-    private void inicializarUI() {
-        setTitle("Sudoku");
+        setTitle("Juego Sudoku");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(600, 600);
-        setLayout(new BorderLayout());
+        setLocationRelativeTo(null);
 
-        // Panel de controles
-        JPanel controlPanel = new JPanel();
-        dificultadComboBox = new JComboBox<>(new String[]{"Fácil", "Medio", "Difícil"});
-        nuevoJuegoButton = new JButton("Nuevo Juego");
-        verificarButton = new JButton("Verificar Solución");
+        JPanel panel = new JPanel(new GridLayout(TAMANIO, TAMANIO));
+        celdas = new JTextField[TAMANIO][TAMANIO];
 
-        nuevoJuegoButton.addActionListener(e -> iniciarNuevoJuego());
-        verificarButton.addActionListener(e -> verificarSolucion());
+        for (int i = 0; i < TAMANIO; i++) {
+            for (int j = 0; j < TAMANIO; j++) {
+                celdas[i][j] = new JTextField();
+                celdas[i][j].setHorizontalAlignment(JTextField.CENTER);
+                celdas[i][j].setFont(new Font("Arial", Font.BOLD, 20));
 
-        controlPanel.add(new JLabel("Dificultad:"));
-        controlPanel.add(dificultadComboBox);
-        controlPanel.add(nuevoJuegoButton);
-        controlPanel.add(verificarButton);
-
-        add(controlPanel, BorderLayout.NORTH);
-
-        // Panel del tablero
-        JPanel tableroPanel = new JPanel(new GridLayout(9, 9));
-        tableroPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        botones = new JButton[9][9];
-
-        for (int fila = 0; fila < 9; fila++) {
-            for (int columna = 0; columna < 9; columna++) {
-                JButton button = new JButton();
-                button.setFont(new Font("Arial", Font.BOLD, 20));
-
-                // Añadir bordes para las subcuadrículas 3x3
-                if ((fila / 3) * 3 + 3 == 9 && (columna / 3) * 3 + 3 == 9) {
-                    button.setBorder(BorderFactory.createMatteBorder(
-                            1, 1, 2, 2, Color.BLACK));
-                } else if ((fila / 3) * 3 + 3 == 9) {
-                    button.setBorder(BorderFactory.createMatteBorder(
-                            1, 1, 2, 1, Color.BLACK));
-                } else if ((columna / 3) * 3 + 3 == 9) {
-                    button.setBorder(BorderFactory.createMatteBorder(
-                            1, 1, 1, 2, Color.BLACK));
+                int valor = sudoku.getTablero()[i][j];
+                if (valor != 0) {
+                    celdas[i][j].setText(String.valueOf(valor));
+                    celdas[i][j].setEditable(false);
+                    celdas[i][j].setBackground(Color.LIGHT_GRAY);
                 } else {
-                    button.setBorder(BorderFactory.createMatteBorder(
-                            1, 1, 1, 1, Color.BLACK));
+                    celdas[i][j].setText("");
+                    celdas[i][j].setEditable(true);
+                    celdas[i][j].setBackground(Color.WHITE);
+
+                    final int fila = i;
+                    final int col = j;
+
+                    celdas[i][j].addKeyListener(new KeyAdapter() {
+                        @Override
+                        public void keyTyped(KeyEvent e) {
+                            char c = e.getKeyChar();
+                            if (c < '1' || c > '9') {
+                                e.consume(); // Solo permitir números 1-9
+                            }
+                        }
+
+                        @Override
+                        public void keyReleased(KeyEvent e) {
+                            String text = celdas[fila][col].getText();
+                            if (text.isEmpty()) {
+                                try {
+                                    sudoku.eliminarNumero(fila, col);
+                                    celdas[fila][col].setBackground(Color.WHITE);
+                                } catch (SudokuException ex) {
+                                    // No debería ocurrir
+                                }
+                                return;
+                            }
+                            try {
+                                int valor = Integer.parseInt(text);
+                                sudoku.colocarNumero(fila, col, valor);
+                                celdas[fila][col].setBackground(Color.WHITE);
+                            } catch (SudokuException ex) {
+                                celdas[fila][col].setBackground(Color.PINK);
+                            }
+                        }
+                    });
                 }
-
-                final int f = fila;
-                final int c = columna;
-
-                button.addActionListener(e -> manejarClickCelda(f, c));
-                botones[fila][columna] = button;
-                tableroPanel.add(button);
+                panel.add(celdas[i][j]);
             }
         }
 
-        add(tableroPanel, BorderLayout.CENTER);
+        JButton btnComprobar = new JButton("Comprobar");
+        btnComprobar.addActionListener(e -> {
+            if (sudoku.estaResuelto()) {
+                JOptionPane.showMessageDialog(this, "¡Felicidades! Sudoku completado correctamente.");
+            } else {
+                JOptionPane.showMessageDialog(this, "El Sudoku no está completo o tiene errores.");
+            }
+        });
 
-        // Iniciar un juego por defecto
-        iniciarNuevoJuego();
-    }
+        JButton btnReiniciar = new JButton("Reiniciar");
+        btnReiniciar.addActionListener(e -> {
+            sudoku.cargarTablero(generador.generarTablero("facil"));
+            actualizarTablero();
+        });
 
-    void iniciarNuevoJuego() {
-        String dificultad = dificultadComboBox.getSelectedItem().toString().toLowerCase();
-        sudoku.generarTablero(dificultad);
-        actualizarTablero();
+        JPanel botones = new JPanel();
+        botones.add(btnComprobar);
+        botones.add(btnReiniciar);
+
+        add(panel, BorderLayout.CENTER);
+        add(botones, BorderLayout.SOUTH);
     }
 
     private void actualizarTablero() {
-        int[][] tablero = sudoku.getTablero();
-        boolean[][] celdasFijas = sudoku.getCeldasFijas();
-
-        for (int fila = 0; fila < 9; fila++) {
-            for (int columna = 0; columna < 9; columna++) {
-                JButton button = botones[fila][columna];
-                if (tablero[fila][columna] == 0) {
-                    button.setText("");
-                    button.setEnabled(true);
-                    button.setBackground(Color.WHITE);
+        for (int i = 0; i < TAMANIO; i++) {
+            for (int j = 0; j < TAMANIO; j++) {
+                int valor = sudoku.getTablero()[i][j];
+                celdas[i][j].setText(valor == 0 ? "" : String.valueOf(valor));
+                if (sudoku.getCeldasFijas()[i][j]) {
+                    celdas[i][j].setEditable(false);
+                    celdas[i][j].setBackground(Color.LIGHT_GRAY);
                 } else {
-                    button.setText(String.valueOf(tablero[fila][columna]));
-                    if (celdasFijas[fila][columna]) {
-                        button.setEnabled(false);
-                        button.setBackground(new Color(240, 240, 240));
-                    } else {
-                        button.setEnabled(true);
-                        button.setBackground(Color.WHITE);
-                    }
+                    celdas[i][j].setEditable(true);
+                    celdas[i][j].setBackground(Color.WHITE);
                 }
             }
-        }
-    }
-
-    private void manejarClickCelda(int fila, int columna) {
-        String input = JOptionPane.showInputDialog(this, "Ingrese un número (1-9):");
-        if (input != null && !input.isEmpty()) {
-            try {
-                int valor = Integer.parseInt(input);
-                sudoku.colocarNumero(fila, columna, valor);
-                actualizarTablero();
-
-                if (sudoku.estaResuelto()) {
-                    JOptionPane.showMessageDialog(this, "¡Felicidades! Has resuelto el Sudoku correctamente.");
-                }
-            } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(this, "Por favor ingrese un número válido (1-9).", "Error", JOptionPane.ERROR_MESSAGE);
-            } catch (MovimientoInvalidoException | EntradaFueraDeRangoException e) {
-                JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
-    private void verificarSolucion() {
-        if (sudoku.estaResuelto()) {
-            JOptionPane.showMessageDialog(this, "¡Correcto! El tablero está resuelto adecuadamente.");
-        } else {
-            JOptionPane.showMessageDialog(this, "El tablero aún no está resuelto correctamente.", "Atención", JOptionPane.WARNING_MESSAGE);
         }
     }
 
